@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:workmanager/workmanager.dart';
+// import 'package:workmanager/workmanager.dart'; // ВРЕМЕННО ОТКЛЮЧЕНО для теста
 import 'firebase_options.dart';
 
 // ============================================================
@@ -21,21 +21,21 @@ const int sleepTimerNotificationIntId = 1001;
 const int bedtimeReminderIntId = 1002;
 
 // ============================================================
-// WORKMANAGER CALLBACK (top-level функция!)
+// WORKMANAGER CALLBACK (закомментировано для теста)
 // ============================================================
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-
-    if (task == 'calculateAndScheduleBedtimeReminder') {
-      await calculateAndScheduleBedtimeReminder();
-    }
-    return true;
-  });
-}
+// @pragma('vm:entry-point')
+// void callbackDispatcher() {
+//   Workmanager().executeTask((task, inputData) async {
+//     await Firebase.initializeApp(
+//       options: DefaultFirebaseOptions.currentPlatform,
+//     );
+//
+//     if (task == 'calculateAndScheduleBedtimeReminder') {
+//       await calculateAndScheduleBedtimeReminder();
+//     }
+//     return true;
+//   });
+// }
 
 // ============================================================
 // MAIN
@@ -63,17 +63,15 @@ Future<void> main() async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
 
-  // Инициализация workmanager
-  await Workmanager().initialize(callbackDispatcher);
-
-  // Регистрация ежедневной задачи
-  await Workmanager().registerPeriodicTask(
-    'bedtime-reminder-task-unique',
-    'calculateAndScheduleBedtimeReminder',
-    frequency: const Duration(hours: 24),
-    initialDelay: _durationUntilNext21(),
-    constraints: Constraints(networkType: NetworkType.connected),
-  );
+  // ─── WORKMANAGER ВРЕМЕННО ОТКЛЮЧЁН ДЛЯ ТЕСТА ───
+  // await Workmanager().initialize(callbackDispatcher);
+  // await Workmanager().registerPeriodicTask(
+  //   'bedtime-reminder-task-unique',
+  //   'calculateAndScheduleBedtimeReminder',
+  //   frequency: const Duration(hours: 24),
+  //   initialDelay: _durationUntilNext21(),
+  //   constraints: Constraints(networkType: NetworkType.connected),
+  // );
 
   runApp(const MyApp());
 }
@@ -254,16 +252,21 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         if (!snapshot.hasData) return const LoginScreen();
 
         final uid = snapshot.data!.uid;
         return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .get(),
           builder: (context, userSnapshot) {
             if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()));
             }
             final data = userSnapshot.data?.data() as Map<String, dynamic>?;
             final hasOnboarding = data?['onboardingCompleted'] == true;
@@ -336,7 +339,8 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
           title: const Text('Восстановление пароля',
               style: TextStyle(color: Colors.white, fontSize: 18)),
           content: Column(
@@ -356,7 +360,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   hintText: 'your@email.com',
                   hintStyle: const TextStyle(color: Colors.white24),
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.white54),
+                  prefixIcon: const Icon(Icons.email_outlined,
+                      color: Colors.white54),
                   filled: true,
                   fillColor: Colors.white10,
                   enabledBorder: OutlineInputBorder(
@@ -375,13 +380,15 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: isSending ? null : () => Navigator.pop(ctx),
-              child: const Text('Отмена', style: TextStyle(color: Colors.white54)),
+              child: const Text('Отмена',
+                  style: TextStyle(color: Colors.white54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: isSending
                   ? null
@@ -423,7 +430,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (ctx.mounted) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             SnackBar(
-                                content: Text(msg), backgroundColor: Colors.red),
+                                content: Text(msg),
+                                backgroundColor: Colors.red),
                           );
                         }
                       }
@@ -449,7 +457,8 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-              image: AssetImage('assets/background_two.png'), fit: BoxFit.cover),
+              image: AssetImage('assets/background_two.png'),
+              fit: BoxFit.cover),
         ),
         child: Container(
           color: Colors.black.withValues(alpha: 0.55),
@@ -460,7 +469,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.bedtime, size: 72, color: Colors.white),
+                    const Icon(Icons.bedtime,
+                        size: 72, color: Colors.white),
                     const SizedBox(height: 12),
                     const Text('Sleep Tracking',
                         style: TextStyle(
@@ -489,7 +499,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 4, vertical: 4),
                           minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          tapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: const Text('Забыли пароль?',
                             style: TextStyle(
@@ -509,14 +520,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         onPressed: _isLoading ? null : _submit,
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.black)
-                            : Text(_isLogin ? 'Войти' : 'Зарегистрироваться',
+                            ? const CircularProgressIndicator(
+                                color: Colors.black)
+                            : Text(
+                                _isLogin
+                                    ? 'Войти'
+                                    : 'Зарегистрироваться',
                                 style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600)),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600)),
                       ),
                     ),
                     TextButton(
-                      onPressed: () => setState(() => _isLogin = !_isLogin),
+                      onPressed: () =>
+                          setState(() => _isLogin = !_isLogin),
                       child: Text(
                         _isLogin
                             ? 'Нет аккаунта? Зарегистрироваться'
@@ -578,8 +595,10 @@ class OnboardingWelcome extends StatelessWidget {
               style: TextStyle(fontSize: 16, color: Colors.white70)),
           const SizedBox(height: 40),
           _whiteButton('Начало', () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const OnboardingGoals()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const OnboardingGoals()));
           }),
         ],
       ),
@@ -623,7 +642,7 @@ class _OnboardingGoalsState extends State<OnboardingGoals> {
           Expanded(
             child: ListView.separated(
               itemCount: _goals.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final goal = _goals[i];
                 final isSelected = _selected.contains(goal);
@@ -646,8 +665,8 @@ class _OnboardingGoalsState extends State<OnboardingGoals> {
                 : () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            OnboardingSleepTime(goals: _selected.toList()),
+                        builder: (_) => OnboardingSleepTime(
+                            goals: _selected.toList()),
                       ),
                     ),
           ),
@@ -661,12 +680,17 @@ class OnboardingSleepTime extends StatefulWidget {
   final List<String> goals;
   const OnboardingSleepTime({super.key, required this.goals});
   @override
-  State<OnboardingSleepTime> createState() => _OnboardingSleepTimeState();
+  State<OnboardingSleepTime> createState() =>
+      _OnboardingSleepTimeState();
 }
 
 class _OnboardingSleepTimeState extends State<OnboardingSleepTime> {
   String? _selected;
-  final _options = const ['Меньше 30 мин.', 'От 30 до 60 мин.', 'Более 60 мин'];
+  final _options = const [
+    'Меньше 30 мин.',
+    'От 30 до 60 мин.',
+    'Более 60 мин'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +722,8 @@ class _OnboardingSleepTimeState extends State<OnboardingSleepTime> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => OnboardingGenderAge(
-                            goals: widget.goals, sleepTime: _selected!),
+                            goals: widget.goals,
+                            sleepTime: _selected!),
                       ),
                     ),
           ),
@@ -714,7 +739,8 @@ class OnboardingGenderAge extends StatefulWidget {
   const OnboardingGenderAge(
       {super.key, required this.goals, required this.sleepTime});
   @override
-  State<OnboardingGenderAge> createState() => _OnboardingGenderAgeState();
+  State<OnboardingGenderAge> createState() =>
+      _OnboardingGenderAgeState();
 }
 
 class _OnboardingGenderAgeState extends State<OnboardingGenderAge> {
@@ -737,11 +763,15 @@ class _OnboardingGenderAgeState extends State<OnboardingGenderAge> {
           Row(
             children: [
               Expanded(
-                  child: _optionTile('Мужской', _gender == 'Мужской',
+                  child: _optionTile(
+                      'Мужской',
+                      _gender == 'Мужской',
                       () => setState(() => _gender = 'Мужской'))),
               const SizedBox(width: 12),
               Expanded(
-                  child: _optionTile('Женский', _gender == 'Женский',
+                  child: _optionTile(
+                      'Женский',
+                      _gender == 'Женский',
                       () => setState(() => _gender = 'Женский'))),
             ],
           ),
@@ -762,8 +792,10 @@ class _OnboardingGenderAgeState extends State<OnboardingGenderAge> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                onPressed: () => setState(() => _age = (_age - 1).clamp(10, 100)),
-                icon: const Icon(Icons.chevron_left, color: Colors.white),
+                onPressed: () =>
+                    setState(() => _age = (_age - 1).clamp(10, 100)),
+                icon: const Icon(Icons.chevron_left,
+                    color: Colors.white),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -779,8 +811,10 @@ class _OnboardingGenderAgeState extends State<OnboardingGenderAge> {
                         fontWeight: FontWeight.bold)),
               ),
               IconButton(
-                onPressed: () => setState(() => _age = (_age + 1).clamp(10, 100)),
-                icon: const Icon(Icons.chevron_right, color: Colors.white),
+                onPressed: () =>
+                    setState(() => _age = (_age + 1).clamp(10, 100)),
+                icon: const Icon(Icons.chevron_right,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -815,7 +849,8 @@ class OnboardingBedTime extends StatefulWidget {
     required this.age,
   });
   @override
-  State<OnboardingBedTime> createState() => _OnboardingBedTimeState();
+  State<OnboardingBedTime> createState() =>
+      _OnboardingBedTimeState();
 }
 
 class _OnboardingBedTimeState extends State<OnboardingBedTime> {
@@ -840,7 +875,10 @@ class _OnboardingBedTimeState extends State<OnboardingBedTime> {
     setState(() => _saving = true);
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({
         'goals': widget.goals,
         'sleepTime': widget.sleepTime,
         'gender': widget.gender,
@@ -853,13 +891,15 @@ class _OnboardingBedTimeState extends State<OnboardingBedTime> {
       if (mounted) {
         Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(
+                builder: (_) => const MainScreen()),
             (route) => false);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -885,8 +925,8 @@ class _OnboardingBedTimeState extends State<OnboardingBedTime> {
             child: GestureDetector(
               onTap: _pickTime,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 40, vertical: 24),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white54),
                   borderRadius: BorderRadius.circular(16),
@@ -900,7 +940,8 @@ class _OnboardingBedTimeState extends State<OnboardingBedTime> {
             ),
           ),
           const Spacer(),
-          _whiteButton('Далее', _saving ? null : _save, loading: _saving),
+          _whiteButton('Далее', _saving ? null : _save,
+              loading: _saving),
         ],
       ),
     );
@@ -915,12 +956,14 @@ Widget _onboardingScaffold(Widget child) {
     body: Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
-            image: AssetImage('assets/background_one.png'), fit: BoxFit.cover),
+            image: AssetImage('assets/background_one.png'),
+            fit: BoxFit.cover),
       ),
       child: Container(
         color: Colors.black.withValues(alpha: 0.55),
         child: SafeArea(
-          child: Padding(padding: const EdgeInsets.all(24), child: child),
+          child: Padding(
+              padding: const EdgeInsets.all(24), child: child),
         ),
       ),
     ),
@@ -931,7 +974,8 @@ Widget _optionTile(String text, bool selected, VoidCallback onTap) {
   return GestureDetector(
     onTap: onTap,
     child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      padding: const EdgeInsets.symmetric(
+          vertical: 18, horizontal: 16),
       decoration: BoxDecoration(
         color: selected ? Colors.white : Colors.transparent,
         border: Border.all(
@@ -945,17 +989,20 @@ Widget _optionTile(String text, bool selected, VoidCallback onTap) {
             child: Text(text,
                 style: TextStyle(
                     color: selected ? Colors.black : Colors.white,
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.normal)),
+                    fontWeight: selected
+                        ? FontWeight.bold
+                        : FontWeight.normal)),
           ),
-          if (selected) const Icon(Icons.check, color: Colors.black, size: 20),
+          if (selected)
+            const Icon(Icons.check, color: Colors.black, size: 20),
         ],
       ),
     ),
   );
 }
 
-Widget _whiteButton(String text, VoidCallback? onPressed, {bool loading = false}) {
+Widget _whiteButton(String text, VoidCallback? onPressed,
+    {bool loading = false}) {
   return SizedBox(
     height: 52,
     child: ElevatedButton(
@@ -963,13 +1010,15 @@ Widget _whiteButton(String text, VoidCallback? onPressed, {bool loading = false}
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         disabledBackgroundColor: Colors.white38,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
       onPressed: onPressed,
       child: loading
           ? const CircularProgressIndicator(color: Colors.black)
           : Text(text,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600)),
     ),
   );
 }
@@ -1002,13 +1051,16 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: Colors.black,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.grey,
-        selectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 12),
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.bedtime), label: 'сон'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'графики'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'профиль'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.bedtime), label: 'сон'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart), label: 'графики'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person), label: 'профиль'),
         ],
       ),
     );
@@ -1054,7 +1106,8 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
-            image: AssetImage('assets/background_one.png'), fit: BoxFit.cover),
+            image: AssetImage('assets/background_one.png'),
+            fit: BoxFit.cover),
       ),
       child: Container(
         color: Colors.black.withValues(alpha: 0.6),
@@ -1062,13 +1115,16 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           child: StreamBuilder<DocumentSnapshot>(
             stream: activeRef.snapshots(),
             builder: (context, activeSnap) {
-              final isActive = activeSnap.hasData && activeSnap.data!.exists;
+              final isActive =
+                  activeSnap.hasData && activeSnap.data!.exists;
               final startTime = isActive
-                  ? (activeSnap.data!.data() as Map)['startTime'] as Timestamp?
+                  ? (activeSnap.data!.data()
+                      as Map)['startTime'] as Timestamp?
                   : null;
 
               if (isActive && _ticker == null) {
-                _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+                _ticker = Timer.periodic(
+                    const Duration(seconds: 1), (_) {
                   if (mounted) setState(() {});
                 });
               } else if (!isActive && _ticker != null) {
@@ -1077,15 +1133,15 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
               }
 
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child:
-                          Icon(Icons.bedtime, color: Colors.white, size: 22),
+                      child: Icon(Icons.bedtime,
+                          color: Colors.white, size: 22),
                     ),
                     const SizedBox(height: 24),
                     _SleepScoreBlock(userId: user.uid),
@@ -1108,7 +1164,8 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
                     else
                       Column(
                         children: [
-                          _LiveTimerText(startTime: startTime?.toDate()),
+                          _LiveTimerText(
+                              startTime: startTime?.toDate()),
                           const SizedBox(height: 12),
                           _timerButton(
                             label: 'Закончить сон',
@@ -1116,7 +1173,8 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
                             textColor: Colors.white,
                             onPressed: _isProcessing
                                 ? null
-                                : () => _endSleep(user.uid, startTime),
+                                : () => _endSleep(
+                                    user.uid, startTime),
                             loading: _isProcessing,
                             loadingColor: Colors.white,
                           ),
@@ -1153,12 +1211,14 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           String wokeUp = '—';
           String fellAsleep = '—';
 
-          if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-            final data =
-                snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          if (snapshot.hasData &&
+              snapshot.data!.docs.isNotEmpty) {
+            final data = snapshot.data!.docs.first.data()
+                as Map<String, dynamic>;
             final hours = (data['hours'] as num?)?.toDouble() ?? 0;
             duration = '${hours.toStringAsFixed(1)} ч';
-            final start = (data['startTime'] as Timestamp?)?.toDate();
+            final start =
+                (data['startTime'] as Timestamp?)?.toDate();
             final end = (data['endTime'] as Timestamp?)?.toDate();
             if (start != null) fellAsleep = _formatTime(start);
             if (end != null) wokeUp = _formatTime(end);
@@ -1182,9 +1242,11 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
     return Row(
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.black54, fontSize: 15)),
+            style: const TextStyle(
+                color: Colors.black54, fontSize: 15)),
         const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: Colors.black26)),
+        Expanded(
+            child: Container(height: 1, color: Colors.black26)),
         const SizedBox(width: 8),
         Text(value,
             style: const TextStyle(
@@ -1224,8 +1286,8 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
                 ),
               )
             : Text(label,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -1248,8 +1310,9 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) {
@@ -1259,7 +1322,8 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
     }
   }
 
-  Future<void> _endSleep(String userId, Timestamp? startTime) async {
+  Future<void> _endSleep(
+      String userId, Timestamp? startTime) async {
     if (_isProcessing) return;
     if (startTime == null) return;
     setState(() => _isProcessing = true);
@@ -1298,13 +1362,14 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           .delete();
 
       await hideSleepTimerNotification();
-      await calculateAndScheduleBedtimeReminder();
+      // await calculateAndScheduleBedtimeReminder(); // ВРЕМЕННО ОТКЛЮЧЕНО
 
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) {
@@ -1335,7 +1400,8 @@ class _SleepScoreBlock extends StatelessWidget {
       builder: (context, snapshot) {
         double hours = 0;
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          final data = snapshot.data!.docs.first.data()
+              as Map<String, dynamic>;
           hours = (data['hours'] as num?)?.toDouble() ?? 0;
         }
 
@@ -1402,7 +1468,8 @@ class _SleepScoreBlock extends StatelessWidget {
               Transform.translate(
                 offset: const Offset(0, -6),
                 child: Align(
-                  alignment: Alignment(-1 + (score / 5.0) * 2, 0),
+                  alignment:
+                      Alignment(-1 + (score / 5.0) * 2, 0),
                   child: Container(
                     width: 10,
                     height: 10,
@@ -1411,7 +1478,8 @@ class _SleepScoreBlock extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: scoreColor.withValues(alpha: 0.4),
+                          color:
+                              scoreColor.withValues(alpha: 0.4),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -1509,7 +1577,8 @@ class _SleepChart extends StatelessWidget {
       builder: (context, snapshot) {
         double hours = 0;
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          final data = snapshot.data!.docs.first.data()
+              as Map<String, dynamic>;
           hours = (data['hours'] as num?)?.toDouble() ?? 0;
         }
 
@@ -1530,7 +1599,8 @@ class _SleepChart extends StatelessWidget {
           width: 220,
           height: 220,
           child: CustomPaint(
-            painter: _SleepRingPainter(progress: progress, color: color),
+            painter: _SleepRingPainter(
+                progress: progress, color: color),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1545,7 +1615,8 @@ class _SleepChart extends StatelessWidget {
                   ),
                   Text(
                     hours == 0 ? 'нет данных' : 'часов сна',
-                    style: const TextStyle(color: Colors.white54, fontSize: 14),
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 14),
                   ),
                 ],
               ),
@@ -1657,15 +1728,19 @@ class _GraphsTabState extends State<GraphsTab> {
 
     if (!mounted) return;
 
-    final controller = TextEditingController(text: existingText);
+    final controller =
+        TextEditingController(text: existingText);
 
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Заметка на ${_formatDateShort(_selectedDate!)}',
-            style: const TextStyle(color: Colors.white, fontSize: 16)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Text(
+            'Заметка на ${_formatDateShort(_selectedDate!)}',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 16)),
         content: SizedBox(
           width: double.maxFinite,
           child: TextField(
@@ -1675,17 +1750,20 @@ class _GraphsTabState extends State<GraphsTab> {
             autofocus: true,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Что произошло в этот день?\nКак спалось? Что снилось?',
+              hintText:
+                  'Что произошло в этот день?\nКак спалось? Что снилось?',
               hintStyle: const TextStyle(color: Colors.white24),
               filled: true,
               fillColor: Colors.white10,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.white12),
+                borderSide:
+                    const BorderSide(color: Colors.white12),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.white38),
+                borderSide:
+                    const BorderSide(color: Colors.white38),
               ),
             ),
           ),
@@ -1694,19 +1772,21 @@ class _GraphsTabState extends State<GraphsTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
-            child:
-                const Text('Отмена', style: TextStyle(color: Colors.white54)),
+            child: const Text('Отмена',
+                style: TextStyle(color: Colors.white54)),
           ),
           if (existingText.isNotEmpty)
             TextButton(
-              onPressed: () => Navigator.pop(ctx, '__DELETE__'),
+              onPressed: () =>
+                  Navigator.pop(ctx, '__DELETE__'),
               child: const Text('Удалить',
                   style: TextStyle(color: Colors.redAccent)),
             ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child:
-                const Text('Сохранить', style: TextStyle(color: Colors.white)),
+            onPressed: () =>
+                Navigator.pop(ctx, controller.text),
+            child: const Text('Сохранить',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -1718,7 +1798,8 @@ class _GraphsTabState extends State<GraphsTab> {
       if (action == '__DELETE__') {
         await noteRef.delete();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
             content: Text('Заметка удалена'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
@@ -1734,7 +1815,8 @@ class _GraphsTabState extends State<GraphsTab> {
           });
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
             content: Text('Заметка сохранена'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
@@ -1743,13 +1825,15 @@ class _GraphsTabState extends State<GraphsTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red));
       }
     }
   }
 
-  Future<void> _deleteEntry(BuildContext context, DocumentReference ref) async {
+  Future<void> _deleteEntry(
+      BuildContext context, DocumentReference ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1780,7 +1864,8 @@ class _GraphsTabState extends State<GraphsTab> {
     try {
       await ref.delete();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
           content: Text('Запись удалена'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
@@ -1824,7 +1909,9 @@ class _GraphsTabState extends State<GraphsTab> {
               _selectedDate == null
                   ? Icons.calendar_today_outlined
                   : Icons.calendar_month,
-              color: _selectedDate == null ? Colors.white : Colors.white70,
+              color: _selectedDate == null
+                  ? Colors.white
+                  : Colors.white70,
             ),
             tooltip: 'Выбрать дату',
             onPressed: _pickDate,
@@ -1841,7 +1928,8 @@ class _GraphsTabState extends State<GraphsTab> {
                   child: _filterChip(
                     label: 'Все сны',
                     selected: _selectedDate == null,
-                    onTap: () => setState(() => _selectedDate = null),
+                    onTap: () =>
+                        setState(() => _selectedDate = null),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1875,17 +1963,21 @@ class _GraphsTabState extends State<GraphsTab> {
                   .orderBy('date', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(
+                      child: CircularProgressIndicator());
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData ||
+                    snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
                         'Пока нет записей.\nНажмите «Начать сон» на главном экране.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white54, fontSize: 16),
+                        style: TextStyle(
+                            color: Colors.white54, fontSize: 16),
                       ),
                     ),
                   );
@@ -1894,9 +1986,12 @@ class _GraphsTabState extends State<GraphsTab> {
                 var entries = snapshot.data!.docs;
                 if (_selectedDate != null) {
                   entries = entries.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final date = (data['date'] as Timestamp?)?.toDate() ??
-                        (data['startTime'] as Timestamp?)?.toDate();
+                    final data =
+                        doc.data() as Map<String, dynamic>;
+                    final date =
+                        (data['date'] as Timestamp?)?.toDate() ??
+                            (data['startTime'] as Timestamp?)
+                                ?.toDate();
                     if (date == null) return false;
                     return date.year == _selectedDate!.year &&
                         date.month == _selectedDate!.month &&
@@ -1909,7 +2004,8 @@ class _GraphsTabState extends State<GraphsTab> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.event_busy,
                               size: 48, color: Colors.white24),
@@ -1918,14 +2014,17 @@ class _GraphsTabState extends State<GraphsTab> {
                             'Нет записей за ${_formatDateShort(_selectedDate!)}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                color: Colors.white54, fontSize: 16),
+                                color: Colors.white54,
+                                fontSize: 16),
                           ),
                           const SizedBox(height: 16),
                           TextButton(
-                            onPressed: () =>
-                                setState(() => _selectedDate = null),
-                            child: const Text('Показать все сны',
-                                style: TextStyle(color: Colors.white70)),
+                            onPressed: () => setState(
+                                () => _selectedDate = null),
+                            child: const Text(
+                                'Показать все сны',
+                                style: TextStyle(
+                                    color: Colors.white70)),
                           ),
                         ],
                       ),
@@ -1937,12 +2036,18 @@ class _GraphsTabState extends State<GraphsTab> {
                   padding: const EdgeInsets.all(16),
                   itemCount: entries.length,
                   itemBuilder: (context, i) {
-                    final data = entries[i].data() as Map<String, dynamic>;
-                    final start = (data['startTime'] as Timestamp?)?.toDate();
-                    final end = (data['endTime'] as Timestamp?)?.toDate();
-                    final hours = (data['hours'] as num?)?.toDouble() ?? 0;
+                    final data =
+                        entries[i].data() as Map<String, dynamic>;
+                    final start = (data['startTime']
+                            as Timestamp?)
+                        ?.toDate();
+                    final end =
+                        (data['endTime'] as Timestamp?)?.toDate();
+                    final hours =
+                        (data['hours'] as num?)?.toDouble() ?? 0;
                     final quality = data['quality'] ?? '—';
-                    final date = (data['date'] as Timestamp?)?.toDate();
+                    final date =
+                        (data['date'] as Timestamp?)?.toDate();
 
                     Color qualityColor;
                     if (hours >= 7) {
@@ -1955,40 +2060,47 @@ class _GraphsTabState extends State<GraphsTab> {
 
                     return Card(
                       color: Colors.grey[900],
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin:
+                          const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius:
+                              BorderRadius.circular(12)),
                       child: Theme(
-                        data: Theme.of(context)
-                            .copyWith(dividerColor: Colors.transparent),
+                        data: Theme.of(context).copyWith(
+                            dividerColor: Colors.transparent),
                         child: ExpansionTile(
                           iconColor: Colors.white,
                           collapsedIconColor: Colors.white54,
                           leading: CircleAvatar(
-                            backgroundColor:
-                                qualityColor.withValues(alpha: 0.2),
+                            backgroundColor: qualityColor
+                                .withValues(alpha: 0.2),
                             child: Icon(Icons.bedtime,
                                 color: qualityColor, size: 20),
                           ),
                           title: Text(
-                            _formatDate(date ?? start ?? DateTime.now()),
+                            _formatDate(
+                                date ?? start ?? DateTime.now()),
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 16),
+                                color: Colors.white,
+                                fontSize: 16),
                           ),
                           subtitle: Text(
                             '${hours.toStringAsFixed(1)} ч • $quality',
                             style: const TextStyle(
-                                color: Colors.white54, fontSize: 13),
+                                color: Colors.white54,
+                                fontSize: 13),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.delete_outline,
+                                icon: const Icon(
+                                    Icons.delete_outline,
                                     color: Colors.redAccent),
                                 tooltip: 'Удалить',
                                 onPressed: () => _deleteEntry(
-                                    context, entries[i].reference),
+                                    context,
+                                    entries[i].reference),
                               ),
                               const Icon(Icons.expand_more,
                                   color: Colors.white54),
@@ -1997,7 +2109,8 @@ class _GraphsTabState extends State<GraphsTab> {
                           children: [
                             Padding(
                               padding:
-                                  const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                  const EdgeInsets.fromLTRB(
+                                      16, 0, 16, 16),
                               child: Column(
                                 children: [
                                   _detailRow(
@@ -2012,7 +2125,8 @@ class _GraphsTabState extends State<GraphsTab> {
                                           ? _formatTime(end)
                                           : '—'),
                                   const SizedBox(height: 8),
-                                  _detailRow('продолжительность',
+                                  _detailRow(
+                                      'продолжительность',
                                       '${hours.toStringAsFixed(1)} ч'),
                                 ],
                               ),
@@ -2039,11 +2153,13 @@ class _GraphsTabState extends State<GraphsTab> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+            vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
           border: Border.all(
-              color: selected ? Colors.white : Colors.white24, width: 1),
+              color: selected ? Colors.white : Colors.white24,
+              width: 1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -2051,7 +2167,8 @@ class _GraphsTabState extends State<GraphsTab> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: selected ? Colors.black : Colors.white70,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            fontWeight:
+                selected ? FontWeight.bold : FontWeight.normal,
             fontSize: 14,
           ),
         ),
@@ -2063,9 +2180,11 @@ class _GraphsTabState extends State<GraphsTab> {
     return Row(
       children: [
         Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 14)),
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 14)),
         const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: Colors.white24)),
+        Expanded(
+            child: Container(height: 1, color: Colors.white24)),
         const SizedBox(width: 8),
         Text(value,
             style: const TextStyle(
@@ -2103,14 +2222,18 @@ class _NoteButton extends StatelessWidget {
       builder: (context, snapshot) {
         final hasNote = snapshot.hasData &&
             snapshot.data!.exists &&
-            ((snapshot.data!.data() as Map?)?['text'] as String? ?? '')
+            ((snapshot.data!.data() as Map?)?['text']
+                        as String? ??
+                    '')
                 .isNotEmpty;
 
         return SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             icon: Icon(
-              hasNote ? Icons.sticky_note_2 : Icons.note_add_outlined,
+              hasNote
+                  ? Icons.sticky_note_2
+                  : Icons.note_add_outlined,
               color: hasNote ? Colors.white : Colors.white70,
               size: 20,
             ),
@@ -2118,15 +2241,18 @@ class _NoteButton extends StatelessWidget {
               hasNote ? 'Открыть заметку' : 'Добавить заметку',
               style: TextStyle(
                 color: hasNote ? Colors.white : Colors.white70,
-                fontWeight: hasNote ? FontWeight.w600 : FontWeight.normal,
+                fontWeight:
+                    hasNote ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
             style: OutlinedButton.styleFrom(
               side: BorderSide(
-                  color: hasNote ? Colors.white38 : Colors.white24),
+                  color:
+                      hasNote ? Colors.white38 : Colors.white24),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 12),
               backgroundColor: hasNote
                   ? Colors.white.withValues(alpha: 0.05)
                   : Colors.transparent,
@@ -2175,8 +2301,10 @@ class ProfileTab extends StatelessWidget {
 
     try {
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        Navigator.of(context, rootNavigator: true)
+            .pushAndRemoveUntil(
+          MaterialPageRoute(
+              builder: (_) => const LoginScreen()),
           (route) => false,
         );
       }
@@ -2184,8 +2312,9 @@ class ProfileTab extends StatelessWidget {
       await FirebaseAuth.instance.signOut();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red));
       }
     }
   }
@@ -2208,7 +2337,8 @@ class ProfileTab extends StatelessWidget {
             const Icon(Icons.person, size: 80, color: Colors.white54),
             const SizedBox(height: 16),
             Text(user?.email ?? 'Неизвестный пользователь',
-                style: const TextStyle(color: Colors.white, fontSize: 18)),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 18)),
             const SizedBox(height: 40),
             SizedBox(
               width: 200,
