@@ -8,48 +8,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
 
-// ============================================================
-// ГЛОБАЛЬНЫЕ ОБЪЕКТЫ
-// ============================================================
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 const int sleepTimerNotificationIntId = 1001;
-const int bedtimeReminderIntId = 1002;
 
-// ============================================================
-// WORKMANAGER CALLBACK
-// ============================================================
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-
-    if (task == 'calculateAndScheduleBedtimeReminder') {
-      await calculateAndScheduleBedtimeReminder();
-    }
-    return true;
-  });
-}
-
-// ============================================================
-// MAIN
-// ============================================================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Инициализация временных зон
   tz.initializeTimeZones();
 
-  // Инициализация локальных уведомлений
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidInit);
   await flutterLocalNotificationsPlugin.initialize(
@@ -57,30 +30,15 @@ Future<void> main() async {
     onDidReceiveNotificationResponse: (response) {},
   );
 
-  // Запрос разрешения на уведомления (Android 13+)
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
 
-  // Инициализация workmanager (обновлённый API для 0.9.0+)
-  await Workmanager().initialize(callbackDispatcher);
-
-  // Регистрация ежедневной задачи
-  // ВАЖНО: в workmanager 0.9.0+ параметр initialDelay удалён
-  await Workmanager().registerPeriodicTask(
-    'bedtime-reminder-task-unique',
-    'calculateAndScheduleBedtimeReminder',
-    frequency: const Duration(hours: 24),
-    constraints: Constraints(networkType: NetworkType.connected),
-  );
-
   runApp(const MyApp());
 }
 
-// ============================================================
-// УВЕДОМЛЕНИЕ ТАЙМЕРА СНА
-// ============================================================
+// Уведомление таймера сна
 Future<void> showSleepTimerNotification(DateTime startTime) async {
   final androidDetails = AndroidNotificationDetails(
     'sleep_timer_channel',
@@ -108,88 +66,6 @@ Future<void> showSleepTimerNotification(DateTime startTime) async {
 
 Future<void> hideSleepTimerNotification() async {
   await flutterLocalNotificationsPlugin.cancel(sleepTimerNotificationIntId);
-}
-
-// ============================================================
-// РАСЧЁТ СРЕДНЕГО ВРЕМЕНИ СНА И НАПОМИНАНИЕ
-// ============================================================
-Future<void> calculateAndScheduleBedtimeReminder() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
-
-  try {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('sleep_entries')
-        .orderBy('date', descending: true)
-        .limit(7)
-        .get();
-
-    if (snapshot.docs.isEmpty) return;
-
-    int totalMinutes = 0;
-    int count = 0;
-    for (var doc in snapshot.docs) {
-      final startTime = (doc.data()['startTime'] as Timestamp?)?.toDate();
-      if (startTime != null) {
-        int minutes = startTime.hour * 60 + startTime.minute;
-        if (minutes < 12 * 60) {
-          minutes += 24 * 60;
-        }
-        totalMinutes += minutes;
-        count++;
-      }
-    }
-
-    if (count == 0) return;
-    final averageMinutes = totalMinutes ~/ count;
-
-    var reminderMinutes = averageMinutes - 30;
-    reminderMinutes = reminderMinutes % (24 * 60);
-
-    final reminderHour = reminderMinutes ~/ 60;
-    final reminderMinute = reminderMinutes % 60;
-
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      reminderHour,
-      reminderMinute,
-    );
-
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    final androidDetails = AndroidNotificationDetails(
-      'bedtime_reminder_channel',
-      'Напоминание о сне',
-      channelDescription: 'Напоминает, что пора ложиться спать',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      bedtimeReminderIntId,
-      'Пора спать 😴',
-      'Основываясь на вашем среднем времени (${_formatTimeOnly(reminderHour, reminderMinute)}), пора готовиться ко сну.',
-      scheduledDate,
-      NotificationDetails(android: androidDetails),
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
-  } catch (e) {
-    debugPrint('Bedtime reminder error: $e');
-  }
-}
-
-String _formatTimeOnly(int h, int m) {
-  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }
 
 // ============================================================
@@ -273,7 +149,7 @@ class AuthGate extends StatelessWidget {
 }
 
 // ============================================================
-// ЭКРАН ВХОДА / РЕГИСТРАЦИИ
+// ЭКРАН ВХОДА
 // ============================================================
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -1014,7 +890,7 @@ Widget _whiteButton(String text, VoidCallback? onPressed,
 }
 
 // ============================================================
-// ГЛАВНЫЙ ЭКРАН С НИЖНИМ МЕНЮ
+// ГЛАВНЫЙ ЭКРАН
 // ============================================================
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -1352,7 +1228,6 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           .delete();
 
       await hideSleepTimerNotification();
-      await calculateAndScheduleBedtimeReminder();
 
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
@@ -1658,7 +1533,7 @@ class _SleepRingPainter extends CustomPainter {
 }
 
 // ============================================================
-// ВКЛАДКА 2: ГРАФИКИ + ЗАМЕТКИ ПО ДАТАМ
+// ВКЛАДКА 2: ГРАФИКИ
 // ============================================================
 class GraphsTab extends StatefulWidget {
   const GraphsTab({super.key});
