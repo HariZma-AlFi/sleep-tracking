@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-// import 'package:workmanager/workmanager.dart'; // ВРЕМЕННО ОТКЛЮЧЕНО для теста
+import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
 
 // ============================================================
@@ -21,21 +21,21 @@ const int sleepTimerNotificationIntId = 1001;
 const int bedtimeReminderIntId = 1002;
 
 // ============================================================
-// WORKMANAGER CALLBACK (закомментировано для теста)
+// WORKMANAGER CALLBACK
 // ============================================================
-// @pragma('vm:entry-point')
-// void callbackDispatcher() {
-//   Workmanager().executeTask((task, inputData) async {
-//     await Firebase.initializeApp(
-//       options: DefaultFirebaseOptions.currentPlatform,
-//     );
-//
-//     if (task == 'calculateAndScheduleBedtimeReminder') {
-//       await calculateAndScheduleBedtimeReminder();
-//     }
-//     return true;
-//   });
-// }
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    if (task == 'calculateAndScheduleBedtimeReminder') {
+      await calculateAndScheduleBedtimeReminder();
+    }
+    return true;
+  });
+}
 
 // ============================================================
 // MAIN
@@ -63,26 +63,19 @@ Future<void> main() async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
 
-  // ─── WORKMANAGER ВРЕМЕННО ОТКЛЮЧЁН ДЛЯ ТЕСТА ───
-  // await Workmanager().initialize(callbackDispatcher);
-  // await Workmanager().registerPeriodicTask(
-  //   'bedtime-reminder-task-unique',
-  //   'calculateAndScheduleBedtimeReminder',
-  //   frequency: const Duration(hours: 24),
-  //   initialDelay: _durationUntilNext21(),
-  //   constraints: Constraints(networkType: NetworkType.connected),
-  // );
+  // Инициализация workmanager (обновлённый API для 0.9.0+)
+  await Workmanager().initialize(callbackDispatcher);
+
+  // Регистрация ежедневной задачи
+  // ВАЖНО: в workmanager 0.9.0+ параметр initialDelay удалён
+  await Workmanager().registerPeriodicTask(
+    'bedtime-reminder-task-unique',
+    'calculateAndScheduleBedtimeReminder',
+    frequency: const Duration(hours: 24),
+    constraints: Constraints(networkType: NetworkType.connected),
+  );
 
   runApp(const MyApp());
-}
-
-Duration _durationUntilNext21() {
-  final now = DateTime.now();
-  var next21 = DateTime(now.year, now.month, now.day, 21, 0, 0);
-  if (next21.isBefore(now)) {
-    next21 = next21.add(const Duration(days: 1));
-  }
-  return next21.difference(now);
 }
 
 // ============================================================
@@ -135,14 +128,12 @@ Future<void> calculateAndScheduleBedtimeReminder() async {
 
     if (snapshot.docs.isEmpty) return;
 
-    // Считаем среднее время отхода ко сну
     int totalMinutes = 0;
     int count = 0;
     for (var doc in snapshot.docs) {
       final startTime = (doc.data()['startTime'] as Timestamp?)?.toDate();
       if (startTime != null) {
         int minutes = startTime.hour * 60 + startTime.minute;
-        // Если после полуночи — добавляем 24 часа для правильного среднего
         if (minutes < 12 * 60) {
           minutes += 24 * 60;
         }
@@ -154,7 +145,6 @@ Future<void> calculateAndScheduleBedtimeReminder() async {
     if (count == 0) return;
     final averageMinutes = totalMinutes ~/ count;
 
-    // Напоминание за 30 минут до среднего времени
     var reminderMinutes = averageMinutes - 30;
     reminderMinutes = reminderMinutes % (24 * 60);
 
@@ -642,7 +632,7 @@ class _OnboardingGoalsState extends State<OnboardingGoals> {
           Expanded(
             child: ListView.separated(
               itemCount: _goals.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final goal = _goals[i];
                 final isSelected = _selected.contains(goal);
@@ -1362,7 +1352,7 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           .delete();
 
       await hideSleepTimerNotification();
-      // await calculateAndScheduleBedtimeReminder(); // ВРЕМЕННО ОТКЛЮЧЕНО
+      await calculateAndScheduleBedtimeReminder();
 
       await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
