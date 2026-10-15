@@ -17,25 +17,81 @@ const int sleepTimerNotificationIntId = 1001;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
 
-  tz.initializeTimeZones();
+  // 1. Firebase: если упадёт - покажем ошибку на экране вместо белого экрана.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 15));
+  } catch (e) {
+    runApp(StartupErrorApp(message: 'Firebase: $e'));
+    return;
+  }
 
-  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidInit);
-  await flutterLocalNotificationsPlugin.initialize(
-    initSettings,
-    onDidReceiveNotificationResponse: (response) {},
-  );
+  // 2. Уведомления: не критично, ошибка не должна блокировать запуск.
+  try {
+    tz.initializeTimeZones();
 
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // ВАЖНО: без настроек для iOS плагин на iPhone падает с
+    // "Null check operator used on a null value" -> белый экран.
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+    await flutterLocalNotificationsPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (response) {},
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  } catch (e, st) {
+    debugPrint('Notifications init error: $e\n$st');
+  }
 
   runApp(const MyApp());
+}
+
+// Экран ошибки запуска (чтобы не было белого экрана без объяснений)
+class StartupErrorApp extends StatelessWidget {
+  final String message;
+  const StartupErrorApp({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: SingleChildScrollView(
+                child: Text(
+                  'Ошибка запуска:\n$message',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // Уведомление таймера сна
@@ -60,7 +116,10 @@ Future<void> showSleepTimerNotification(DateTime startTime) async {
     sleepTimerNotificationIntId,
     'Сон отслеживается',
     'Нажмите, чтобы вернуться в приложение',
-    NotificationDetails(android: androidDetails),
+    NotificationDetails(
+      android: androidDetails,
+      iOS: const DarwinNotificationDetails(),
+    ),
   );
 }
 
