@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'firebase_options.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -221,8 +220,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isLogin = true;
+  bool _obscurePassword = true;
 
   Future<void> _submit() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Введите email и пароль'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
@@ -237,13 +246,33 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      String message = 'Ошибка [${e.code}]: ${e.message}';
-      if (e.code == 'user-not-found') message = 'Пользователь не найден';
-      if (e.code == 'wrong-password') message = 'Неверный пароль';
-      if (e.code == 'email-already-in-use') message = 'Email уже занят';
-      if (e.code == 'weak-password') message = 'Пароль минимум 6 символов';
-      if (e.code == 'invalid-email') message = 'Некорректный email';
-      if (e.code == 'network-request-failed') message = 'Проблема с интернетом';
+      debugPrint('Auth error: ${e.code} ${e.message}');
+      String message = 'Не удалось выполнить вход. Попробуйте ещё раз.';
+      switch (e.code) {
+        case 'invalid-credential':
+        case 'user-not-found':
+        case 'wrong-password':
+          message = 'Неверный email или пароль';
+          break;
+        case 'email-already-in-use':
+          message = 'Этот email уже занят';
+          break;
+        case 'weak-password':
+          message = 'Пароль минимум 6 символов';
+          break;
+        case 'invalid-email':
+          message = 'Некорректный email';
+          break;
+        case 'user-disabled':
+          message = 'Аккаунт отключён';
+          break;
+        case 'too-many-requests':
+          message = 'Слишком много попыток. Попробуйте позже';
+          break;
+        case 'network-request-failed':
+          message = 'Проблема с интернетом';
+          break;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -345,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                       } on FirebaseAuthException catch (e) {
                         setDialogState(() => isSending = false);
-                        String msg = 'Ошибка';
+                        String msg = 'Не удалось отправить письмо';
                         if (e.code == 'user-not-found') {
                           msg = 'Пользователь с таким email не найден';
                         }
@@ -412,9 +441,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       style: const TextStyle(color: Colors.white),
-                      decoration: _inputDecoration('Пароль', Icons.lock),
+                      decoration: _inputDecoration(
+                        'Пароль',
+                        Icons.lock,
+                        suffix: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: Colors.white70,
+                          ),
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
                     ),
                     Align(
                       alignment: Alignment.centerRight,
@@ -476,11 +518,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  InputDecoration _inputDecoration(String label, IconData icon,
+      {Widget? suffix}) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
       prefixIcon: Icon(icon, color: Colors.white70),
+      suffixIcon: suffix,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.white54),
@@ -567,7 +611,7 @@ class _OnboardingGoalsState extends State<OnboardingGoals> {
           Expanded(
             child: ListView.separated(
               itemCount: _goals.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, i) {
                 final goal = _goals[i];
                 final isSelected = _selected.contains(goal);
@@ -823,7 +867,7 @@ class _OnboardingBedTimeState extends State<OnboardingBedTime> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     } finally {
@@ -981,11 +1025,11 @@ class _MainScreenState extends State<MainScreen> {
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         items: const [
           BottomNavigationBarItem(
-              icon: Icon(Icons.bedtime), label: 'сон'),
+              icon: Icon(Icons.bedtime), label: 'Сон'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart), label: 'графики'),
+              icon: Icon(Icons.bar_chart), label: 'Графики'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.person), label: 'профиль'),
+              icon: Icon(Icons.person), label: 'Профиль'),
         ],
       ),
     );
@@ -1002,14 +1046,7 @@ class SleepRecordTab extends StatefulWidget {
 }
 
 class _SleepRecordTabState extends State<SleepRecordTab> {
-  Timer? _ticker;
   bool _isProcessing = false;
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1046,16 +1083,6 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
                   ? (activeSnap.data!.data()
                       as Map)['startTime'] as Timestamp?
                   : null;
-
-              if (isActive && _ticker == null) {
-                _ticker = Timer.periodic(
-                    const Duration(seconds: 1), (_) {
-                  if (mounted) setState(() {});
-                });
-              } else if (!isActive && _ticker != null) {
-                _ticker?.cancel();
-                _ticker = null;
-              }
 
               return Padding(
                 padding: const EdgeInsets.symmetric(
@@ -1228,22 +1255,17 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           .doc(userId)
           .collection('active_session')
           .doc('current')
-          .set({'startTime': FieldValue.serverTimestamp()});
+          .set({'startTime': Timestamp.fromDate(now)});
 
       await showSleepTimerNotification(now);
-
-      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     } finally {
-      if (mounted) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        if (mounted) setState(() => _isProcessing = false);
-      }
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -1257,6 +1279,44 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
       final start = startTime.toDate();
       final end = DateTime.now();
       final hours = end.difference(start).inMinutes / 60.0;
+
+      // Слишком короткая сессия - скорее всего нажали случайно
+      if (end.difference(start) < const Duration(minutes: 10)) {
+        final save = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.grey[900],
+            title: const Text('Очень короткий сон',
+                style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'Сессия длится меньше 10 минут. Сохранить её в историю?',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Удалить',
+                    style: TextStyle(color: Colors.redAccent)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Сохранить',
+                    style: TextStyle(color: Colors.white70)),
+              ),
+            ],
+          ),
+        );
+        if (save != true) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('active_session')
+              .doc('current')
+              .delete();
+          await hideSleepTimerNotification();
+          return;
+        }
+      }
 
       String quality;
       if (hours >= 7) {
@@ -1287,19 +1347,14 @@ class _SleepRecordTabState extends State<SleepRecordTab> {
           .delete();
 
       await hideSleepTimerNotification();
-
-      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     } finally {
-      if (mounted) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        if (mounted) setState(() => _isProcessing = false);
-      }
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 }
@@ -1607,6 +1662,21 @@ class _GraphsTabState extends State<GraphsTab> {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
+  Query<Map<String, dynamic>> _entriesQuery(String uid) {
+    final base = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('sleep_entries')
+        .orderBy('date', descending: true);
+    final d = _selectedDate;
+    if (d == null) return base.limit(100);
+    final dayStart = DateTime(d.year, d.month, d.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    return base
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+        .where('date', isLessThan: Timestamp.fromDate(dayEnd));
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -1622,7 +1692,8 @@ class _GraphsTabState extends State<GraphsTab> {
             onPrimary: Colors.black,
             surface: Color(0xFF1E1E1E),
           ),
-          dialogBackgroundColor: const Color(0xFF1E1E1E),
+          dialogTheme:
+              const DialogThemeData(backgroundColor: Color(0xFF1E1E1E)),
         ),
         child: child!,
       ),
@@ -1750,7 +1821,7 @@ class _GraphsTabState extends State<GraphsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     }
@@ -1798,7 +1869,7 @@ class _GraphsTabState extends State<GraphsTab> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка удаления: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     }
@@ -1880,12 +1951,7 @@ class _GraphsTabState extends State<GraphsTab> {
             ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('sleep_entries')
-                  .orderBy('date', descending: true)
-                  .snapshots(),
+              stream: _entriesQuery(user.uid).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
@@ -1907,21 +1973,7 @@ class _GraphsTabState extends State<GraphsTab> {
                   );
                 }
 
-                var entries = snapshot.data!.docs;
-                if (_selectedDate != null) {
-                  entries = entries.where((doc) {
-                    final data =
-                        doc.data() as Map<String, dynamic>;
-                    final date =
-                        (data['date'] as Timestamp?)?.toDate() ??
-                            (data['startTime'] as Timestamp?)
-                                ?.toDate();
-                    if (date == null) return false;
-                    return date.year == _selectedDate!.year &&
-                        date.month == _selectedDate!.month &&
-                        date.day == _selectedDate!.day;
-                  }).toList();
-                }
+                final entries = snapshot.data!.docs;
 
                 if (entries.isEmpty) {
                   return Center(
@@ -2237,7 +2289,121 @@ class ProfileTab extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Ошибка: $e'),
+            content: Text(_friendlyError(e)),
+            backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    final passwordController = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('Удалить аккаунт?',
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Все ваши записи сна и заметки будут удалены безвозвратно. '
+              'Для подтверждения введите пароль.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Пароль',
+                hintStyle: TextStyle(color: Colors.white38),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white38)),
+                focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена',
+                style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, passwordController.text),
+            child: const Text('Удалить',
+                style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    passwordController.dispose();
+
+    if (password == null || password.isEmpty) return;
+    if (!context.mounted) return;
+
+    var spinnerShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    void closeSpinner() {
+      if (spinnerShown && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      spinnerShown = false;
+    }
+
+    try {
+      final credential = EmailAuthProvider.credential(
+          email: user.email!, password: password);
+      await user.reauthenticateWithCredential(credential);
+
+      final userDoc =
+          FirebaseFirestore.instance.collection('users').doc(user.uid);
+      await _deleteCollection(userDoc.collection('sleep_entries'));
+      await _deleteCollection(userDoc.collection('notes'));
+      await _deleteCollection(userDoc.collection('active_session'));
+      await userDoc.delete();
+
+      await hideSleepTimerNotification();
+      await user.delete();
+
+      closeSpinner();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      closeSpinner();
+      debugPrint('Delete account error: ${e.code} ${e.message}');
+      final wrongPassword = e.code == 'wrong-password' ||
+          e.code == 'invalid-credential';
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(wrongPassword
+              ? 'Неверный пароль'
+              : _friendlyError(e)),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
+      closeSpinner();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red));
       }
     }
@@ -2278,6 +2444,12 @@ class ProfileTab extends StatelessWidget {
                 child: const Text('Выйти'),
               ),
             ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => _deleteAccount(context),
+              child: const Text('Удалить аккаунт',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 14)),
+            ),
           ],
         ),
       ),
@@ -2288,6 +2460,35 @@ class ProfileTab extends StatelessWidget {
 // ============================================================
 // ХЕЛПЕРЫ
 // ============================================================
+Future<void> _deleteCollection(
+    CollectionReference<Map<String, dynamic>> collection) async {
+  while (true) {
+    final snap = await collection.limit(400).get();
+    if (snap.docs.isEmpty) break;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final d in snap.docs) {
+      batch.delete(d.reference);
+    }
+    await batch.commit();
+  }
+}
+
+String _friendlyError(Object e) {
+  debugPrint('Error: $e');
+  if (e is FirebaseException) {
+    switch (e.code) {
+      case 'permission-denied':
+        return 'Нет доступа к данным. Войдите в аккаунт заново';
+      case 'unavailable':
+      case 'network-request-failed':
+        return 'Нет соединения. Проверьте интернет';
+      case 'requires-recent-login':
+        return 'Войдите в аккаунт заново и повторите действие';
+    }
+  }
+  return 'Что-то пошло не так. Попробуйте ещё раз';
+}
+
 String _formatTime(DateTime dt) {
   return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
